@@ -3,7 +3,6 @@ package rest
 import (
 	"context"
 	"errors"
-	"fmt"
 	"github.com/go-chi/chi/v5"
 	"gophermart/internal/ports"
 	"net"
@@ -17,7 +16,7 @@ type ChiServer struct {
 	logger   ports.Logger
 }
 
-func NewChiServer(port string, s ports.Store, logger ports.Logger) (*ChiServer, error) {
+func NewChiServer(address string, s ports.Store, logger ports.Logger) (*ChiServer, error) {
 	var (
 		server ChiServer
 		err    error
@@ -25,7 +24,7 @@ func NewChiServer(port string, s ports.Store, logger ports.Logger) (*ChiServer, 
 
 	server.logger = logger
 
-	server.listener, err = net.Listen("tcp", fmt.Sprintf(":%s", port))
+	server.listener, err = net.Listen("tcp", address)
 	if err != nil {
 		server.logger.Error("failed listen port", err)
 	}
@@ -46,7 +45,7 @@ func (s *ChiServer) Start() error {
 
 func (s *ChiServer) Stop(ctx context.Context) error {
 	err := s.http.Shutdown(ctx)
-	s.logger.Info("http server is stopped")
+	s.logger.Info("http server stopped")
 	return err
 }
 
