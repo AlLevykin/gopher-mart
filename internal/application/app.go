@@ -10,21 +10,30 @@ import (
 	"gophermart/internal/ports"
 )
 
+const (
+	DatabaseUrl          = "DATABASE_URL"
+	RunAddress           = "RUN_ADDRESS"
+	AccrualSystemAddress = "ACCRUAL_SYSTEM_ADDRESS"
+)
+
 var (
 	server ports.RESTServer
 )
 
 func Start(ctx context.Context) {
+
+	readEnv()
+
 	logger := logging.GetLogger()
 
-	pgconn := viper.GetString("DATABASE_URL")
+	pgconn := viper.GetString(DatabaseUrl)
 	store, err := db.NewPostgresStore(ctx, pgconn, logger)
 	if err != nil {
 		logger.Fatal("store creation filed", err)
 	}
 
-	port := viper.GetString("APP_PORT")
-	server, err := rest.NewChiServer(port, store, logger)
+	address := viper.GetString(RunAddress)
+	server, err = rest.NewChiServer(address, store, logger)
 	if err != nil {
 		logger.Fatal("rest server creation filed", err)
 	}
@@ -48,4 +57,27 @@ func Stop() {
 		logger.Fatalf("app stop failed: %v", err)
 	}
 	logger.Info("app stopped")
+}
+
+func readEnv() {
+	var err error
+	logger := logging.GetLogger()
+
+	err = viper.BindEnv(DatabaseUrl)
+	if err != nil {
+		logger.Fatalf("database url env: %v", err)
+	}
+	viper.SetDefault(DatabaseUrl, "postgres://postgres:qwerty@localhost:5432/gophermart?sslmode=disable")
+
+	err = viper.BindEnv(RunAddress)
+	if err != nil {
+		logger.Fatalf("run address env: %v", err)
+	}
+	viper.SetDefault(RunAddress, "127.0.0.1:8080")
+
+	err = viper.BindEnv(AccrualSystemAddress)
+	if err != nil {
+		logger.Fatalf("accrual system address env: %v", err)
+	}
+	viper.SetDefault(AccrualSystemAddress, "127.0.0.1:8080")
 }
