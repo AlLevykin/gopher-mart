@@ -11,8 +11,8 @@ import (
 )
 
 const (
-	DatabaseUrl          = "DATABASE_URL"
-	RunAddress           = "RUN_ADDRESS"
+	DatabaseURL = "DATABASE_URL"
+	RunAddress  = "RUN_ADDRESS"
 	AccrualSystemAddress = "ACCRUAL_SYSTEM_ADDRESS"
 )
 
@@ -26,7 +26,7 @@ func Start(ctx context.Context) {
 
 	logger := logging.GetLogger()
 
-	pgconn := viper.GetString(DatabaseUrl)
+	pgconn := viper.GetString(DatabaseURL)
 	store, err := db.NewPostgresStore(ctx, pgconn, logger)
 	if err != nil {
 		logger.Fatal("store creation filed", err)
@@ -63,11 +63,11 @@ func readEnv() {
 	var err error
 	logger := logging.GetLogger()
 
-	err = viper.BindEnv(DatabaseUrl)
+	err = viper.BindEnv(DatabaseURL)
 	if err != nil {
 		logger.Fatalf("database url env: %v", err)
 	}
-	viper.SetDefault(DatabaseUrl, "postgres://postgres:qwerty@localhost:5432/gophermart?sslmode=disable")
+	viper.SetDefault(DatabaseURL, "postgres://postgres:qwerty@localhost:5432/gophermart?sslmode=disable")
 
 	err = viper.BindEnv(RunAddress)
 	if err != nil {
