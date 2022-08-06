@@ -1,7 +1,10 @@
 package ports
 
-import "gophermart/internal/domain/models"
+import (
+	"context"
+	"gophermart/internal/domain/models"
+)
 
 type Store interface {
-	RegisterUser(u models.User) error
+	RegisterUser(ctx context.Context, u *models.User) error
 }

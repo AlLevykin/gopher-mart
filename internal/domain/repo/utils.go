@@ -5,11 +5,11 @@ import (
 	"gophermart/internal/domain/models"
 )
 
-func UnmarshalUser(s string) (models.User, error) {
+func UnmarshalUser(s string) (*models.User, error) {
 	res := models.User{}
 	err := json.Unmarshal([]byte(s), &res)
 	if err != nil {
-		return models.User{}, err
+		return nil, err
 	}
-	return res, nil
+	return &res, nil
 }

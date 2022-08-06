@@ -73,6 +73,16 @@ func (s *ChiServer) register(w http.ResponseWriter, req *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	s.store.RegisterUser(u)
+	err = s.store.RegisterUser(req.Context(), u)
+	if err == repo.ErrUserExists {
+		s.logger.Error("store error:", err)
+		http.Error(w, err.Error(), http.StatusConflict)
+		return
+	}
+	if err != nil {
+		s.logger.Error("store error:", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 	w.WriteHeader(http.StatusOK)
 }
