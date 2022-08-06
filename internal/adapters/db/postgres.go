@@ -6,7 +6,6 @@ import (
 	"embed"
 	"errors"
 	"github.com/lib/pq"
-	_ "github.com/lib/pq"
 	"github.com/pressly/goose/v3"
 	"gophermart/internal/domain/models"
 	"gophermart/internal/domain/repo"
