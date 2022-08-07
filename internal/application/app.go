@@ -2,6 +2,7 @@ package application
 
 import (
 	"context"
+	"flag"
 	"github.com/spf13/viper"
 	"golang.org/x/sync/errgroup"
 	"gophermart/internal/adapters/db"
@@ -11,8 +12,8 @@ import (
 )
 
 const (
-	DatabaseURL = "DATABASE_URL"
-	RunAddress  = "RUN_ADDRESS"
+	DatabaseURL          = "DATABASE_URL"
+	RunAddress           = "RUN_ADDRESS"
 	AccrualSystemAddress = "ACCRUAL_SYSTEM_ADDRESS"
 )
 
@@ -60,24 +61,33 @@ func Stop() {
 }
 
 func readEnv() {
-	var err error
+	var (
+		err        error
+		addr       string
+		dbURL      string
+		accrualSys string
+	)
 	logger := logging.GetLogger()
+
+	flag.StringVar(&addr, "a", "127.0.0.1:8080", "")
+	flag.StringVar(&dbURL, "d", "postgres://postgres:qwerty@localhost:5432/gophermart?sslmode=disable", "")
+	flag.StringVar(&accrualSys, "r", "127.0.0.1:8080", "")
 
 	err = viper.BindEnv(DatabaseURL)
 	if err != nil {
 		logger.Fatalf("database url env: %v", err)
 	}
-	viper.SetDefault(DatabaseURL, "postgres://postgres:qwerty@localhost:5432/gophermart?sslmode=disable")
+	viper.SetDefault(DatabaseURL, dbURL)
 
 	err = viper.BindEnv(RunAddress)
 	if err != nil {
 		logger.Fatalf("run address env: %v", err)
 	}
-	viper.SetDefault(RunAddress, "127.0.0.1:8080")
+	viper.SetDefault(RunAddress, addr)
 
 	err = viper.BindEnv(AccrualSystemAddress)
 	if err != nil {
 		logger.Fatalf("accrual system address env: %v", err)
 	}
-	viper.SetDefault(AccrualSystemAddress, "127.0.0.1:8080")
+	viper.SetDefault(AccrualSystemAddress, accrualSys)
 }
