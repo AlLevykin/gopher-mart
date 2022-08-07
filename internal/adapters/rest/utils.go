@@ -4,6 +4,7 @@ import (
 	"compress/gzip"
 	"io"
 	"net/http"
+	"time"
 )
 
 func ReadBody(req *http.Request) (string, error) {
@@ -23,4 +24,14 @@ func ReadBody(req *http.Request) (string, error) {
 		return "", err
 	}
 	return string(buf), nil
+}
+
+func SetCookie(w http.ResponseWriter, l string, expire time.Duration) {
+	cookie := &http.Cookie{
+		Name:    "GOPHERMART-SESSION",
+		Value:   l,
+		Path:    "/",
+		Expires: time.Now().Add(expire),
+	}
+	http.SetCookie(w, cookie)
 }

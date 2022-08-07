@@ -8,6 +8,7 @@ import (
 	"gophermart/internal/ports"
 	"net"
 	"net/http"
+	"time"
 )
 
 type ChiServer struct {
@@ -55,6 +56,7 @@ func (s *ChiServer) routes() http.Handler {
 	r := chi.NewMux()
 	r.Route("/api/user", func(r chi.Router) {
 		r.Post("/register", s.register)
+		r.Post("/login", s.login)
 	})
 	return r
 }
@@ -75,7 +77,6 @@ func (s *ChiServer) register(w http.ResponseWriter, req *http.Request) {
 	}
 	err = s.store.RegisterUser(req.Context(), u)
 	if err == repo.ErrUserExists {
-		s.logger.Error("store error:", err)
 		http.Error(w, err.Error(), http.StatusConflict)
 		return
 	}
@@ -84,5 +85,35 @@ func (s *ChiServer) register(w http.ResponseWriter, req *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+	SetCookie(w, u.Login, 24*time.Hour)
+	w.WriteHeader(http.StatusOK)
+}
+
+func (s *ChiServer) login(w http.ResponseWriter, req *http.Request) {
+	s.logger.Info("login http request")
+	SetCookie(w, "", -1*time.Hour)
+	b, err := ReadBody(req)
+	if err != nil {
+		s.logger.Error("no request body for login:", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	u, err := repo.UnmarshalUser(b)
+	if err != nil {
+		s.logger.Error("bad request for login:", err)
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	err = s.store.Validation(req.Context(), u)
+	if err == repo.ErrValidation {
+		http.Error(w, err.Error(), http.StatusUnauthorized)
+		return
+	}
+	if err != nil {
+		s.logger.Error("store error:", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	SetCookie(w, u.Login, 24*time.Hour)
 	w.WriteHeader(http.StatusOK)
 }
