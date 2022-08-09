@@ -8,4 +8,7 @@ import (
 type Store interface {
 	RegisterUser(ctx context.Context, u *models.User) error
 	Validation(ctx context.Context, u *models.User) error
+	IsOrderAccepted(ctx context.Context, order string) (bool, error)
+	IsOrderAcceptedByUser(ctx context.Context, order string, login string) (bool, error)
+	SaveOrder(ctx context.Context, order string, login string) error
 }

@@ -10,7 +10,8 @@ import (
 )
 
 var (
-	ErrJWTValidation = errors.New("jwt validation error")
+	ErrJWTValidation     = errors.New("jwt validation error")
+	ErrJWTClaimsNotFound = errors.New("user claims not found")
 )
 
 var JwtSecretKey = []byte("my_secret_key")
@@ -89,10 +90,10 @@ func Login(w http.ResponseWriter, l string, expire time.Duration) error {
 	return nil
 }
 
-func Validate(req *http.Request) error {
+func Validate(req *http.Request) (string, error) {
 	cookie, err := req.Cookie("GOPHERMART-SESSION")
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	claims := &Claims{}
@@ -100,12 +101,17 @@ func Validate(req *http.Request) error {
 		return JwtSecretKey, nil
 	})
 	if err != nil {
-		return err
+		return "", err
+	}
+
+	claims, ok := token.Claims.(*Claims)
+	if !ok {
+		return "", ErrJWTClaimsNotFound
 	}
 
 	if !token.Valid {
-		return ErrJWTValidation
+		return "", ErrJWTValidation
 	}
 
-	return nil
+	return claims.Login, nil
 }
