@@ -80,3 +80,54 @@ func (s PostgresStore) Validation(ctx context.Context, u *models.User) error {
 	}
 	return nil
 }
+
+func (s PostgresStore) IsOrderAccepted(ctx context.Context, order string) (bool, error) {
+	s.logger.Info("order checking:", order)
+	r, err := s.db.ExecContext(
+		ctx,
+		"SELECT * FROM \"order\" WHERE \"number\" = $1",
+		order)
+	if err != nil {
+		return false, err
+	}
+	rows, err := r.RowsAffected()
+	if err != nil {
+		return false, err
+	}
+	if rows != 0 {
+		return false, nil
+	}
+	return true, nil
+}
+
+func (s PostgresStore) IsOrderAcceptedByUser(ctx context.Context, order string, login string) (bool, error) {
+	s.logger.Info("order checking by user:", order, " ", login)
+	r, err := s.db.ExecContext(
+		ctx,
+		"SELECT * FROM \"order\" WHERE \"number\" = $1 AND \"user\" = $2",
+		order,
+		login)
+	if err != nil {
+		return false, err
+	}
+	rows, err := r.RowsAffected()
+	if err != nil {
+		return false, err
+	}
+	if rows != 0 {
+		return false, nil
+	}
+	return true, nil
+}
+
+func (s PostgresStore) SaveOrder(ctx context.Context, order string, login string) error {
+	s.logger.Info("save order:", order, " ", login)
+	_, err := s.db.ExecContext(ctx,
+		"INSERT INTO \"order\"(\"number\", \"user\", status) VALUES($1,$2,$3)",
+		order, login, "NEW")
+	if err != nil {
+		s.logger.Error("can't save order:", err)
+		return err
+	}
+	return nil
+}
