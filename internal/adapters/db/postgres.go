@@ -76,7 +76,7 @@ func (s PostgresStore) Validation(ctx context.Context, u *models.User) error {
 		return err
 	}
 	if rows != 1 {
-		return repo.ErrValidation
+		return repo.ErrUserValidation
 	}
 	return nil
 }

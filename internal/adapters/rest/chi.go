@@ -57,8 +57,21 @@ func (s *ChiServer) routes() http.Handler {
 	r.Route("/api/user", func(r chi.Router) {
 		r.Post("/register", s.register)
 		r.Post("/login", s.login)
+		r.With(s.ValidateSession).Post("/orders", s.uploadOrder)
 	})
 	return r
+}
+
+func (s *ChiServer) ValidateSession(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		err := Validate(req)
+		if err != nil {
+			s.logger.Error("jwt validation failed:", err)
+			http.Error(w, err.Error(), http.StatusUnauthorized)
+			return
+		}
+		next.ServeHTTP(w, req)
+	})
 }
 
 func (s *ChiServer) register(w http.ResponseWriter, req *http.Request) {
@@ -85,13 +98,13 @@ func (s *ChiServer) register(w http.ResponseWriter, req *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	SetCookie(w, u.Login, 24*time.Hour)
+	Login(w, u.Login, 24*time.Hour)
 	w.WriteHeader(http.StatusOK)
 }
 
 func (s *ChiServer) login(w http.ResponseWriter, req *http.Request) {
 	s.logger.Info("login http request")
-	SetCookie(w, "", -1*time.Hour)
+	Logout(w)
 	b, err := ReadBody(req)
 	if err != nil {
 		s.logger.Error("no request body for login:", err)
@@ -105,7 +118,7 @@ func (s *ChiServer) login(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	err = s.store.Validation(req.Context(), u)
-	if err == repo.ErrValidation {
+	if err == repo.ErrUserValidation {
 		http.Error(w, err.Error(), http.StatusUnauthorized)
 		return
 	}
@@ -114,6 +127,10 @@ func (s *ChiServer) login(w http.ResponseWriter, req *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	SetCookie(w, u.Login, 24*time.Hour)
+	Login(w, u.Login, 24*time.Hour)
+	w.WriteHeader(http.StatusOK)
+}
+
+func (s *ChiServer) uploadOrder(w http.ResponseWriter, req *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
