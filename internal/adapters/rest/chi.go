@@ -8,6 +8,7 @@ import (
 	"gophermart/internal/ports"
 	"net"
 	"net/http"
+	"time"
 )
 
 type ChiServer struct {
@@ -55,8 +56,22 @@ func (s *ChiServer) routes() http.Handler {
 	r := chi.NewMux()
 	r.Route("/api/user", func(r chi.Router) {
 		r.Post("/register", s.register)
+		r.Post("/login", s.login)
+		r.With(s.ValidateSession).Post("/orders", s.uploadOrder)
 	})
 	return r
+}
+
+func (s *ChiServer) ValidateSession(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		err := Validate(req)
+		if err != nil {
+			s.logger.Error("jwt validation failed:", err)
+			http.Error(w, err.Error(), http.StatusUnauthorized)
+			return
+		}
+		next.ServeHTTP(w, req)
+	})
 }
 
 func (s *ChiServer) register(w http.ResponseWriter, req *http.Request) {
@@ -75,7 +90,6 @@ func (s *ChiServer) register(w http.ResponseWriter, req *http.Request) {
 	}
 	err = s.store.RegisterUser(req.Context(), u)
 	if err == repo.ErrUserExists {
-		s.logger.Error("store error:", err)
 		http.Error(w, err.Error(), http.StatusConflict)
 		return
 	}
@@ -84,5 +98,39 @@ func (s *ChiServer) register(w http.ResponseWriter, req *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+	Login(w, u.Login, 24*time.Hour)
+	w.WriteHeader(http.StatusOK)
+}
+
+func (s *ChiServer) login(w http.ResponseWriter, req *http.Request) {
+	s.logger.Info("login http request")
+	Logout(w)
+	b, err := ReadBody(req)
+	if err != nil {
+		s.logger.Error("no request body for login:", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	u, err := repo.UnmarshalUser(b)
+	if err != nil {
+		s.logger.Error("bad request for login:", err)
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	err = s.store.Validation(req.Context(), u)
+	if err == repo.ErrUserValidation {
+		http.Error(w, err.Error(), http.StatusUnauthorized)
+		return
+	}
+	if err != nil {
+		s.logger.Error("store error:", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	Login(w, u.Login, 24*time.Hour)
+	w.WriteHeader(http.StatusOK)
+}
+
+func (s *ChiServer) uploadOrder(w http.ResponseWriter, req *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }

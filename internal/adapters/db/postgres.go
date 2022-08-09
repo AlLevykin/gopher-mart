@@ -60,3 +60,23 @@ func (s PostgresStore) RegisterUser(ctx context.Context, u *models.User) error {
 	s.logger.Info("register user:", u.Login)
 	return nil
 }
+
+func (s PostgresStore) Validation(ctx context.Context, u *models.User) error {
+	s.logger.Info("user validation:", u.Login)
+	r, err := s.db.ExecContext(
+		ctx,
+		"SELECT * FROM \"user\" WHERE login = $1 AND pwh = $2",
+		u.Login,
+		u.Password)
+	if err != nil {
+		return err
+	}
+	rows, err := r.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rows != 1 {
+		return repo.ErrUserValidation
+	}
+	return nil
+}
