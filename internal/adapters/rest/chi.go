@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
 	"gophermart/internal/domain/repo"
 	"gophermart/internal/ports"
 	"net"
@@ -54,6 +55,7 @@ func (s *ChiServer) Stop(ctx context.Context) error {
 
 func (s *ChiServer) routes() http.Handler {
 	r := chi.NewMux()
+	r.Use(middleware.Compress(5))
 	r.Route("/api/user", func(r chi.Router) {
 		r.Post("/register", s.register)
 		r.Post("/login", s.login)
@@ -104,7 +106,6 @@ func (s *ChiServer) register(w http.ResponseWriter, req *http.Request) {
 
 func (s *ChiServer) login(w http.ResponseWriter, req *http.Request) {
 	s.logger.Info("login http request")
-	Logout(w)
 	b, err := ReadBody(req)
 	if err != nil {
 		s.logger.Error("no request body for login:", err)
