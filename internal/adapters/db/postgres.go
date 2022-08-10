@@ -131,3 +131,14 @@ func (s PostgresStore) SaveOrder(ctx context.Context, order string, login string
 	}
 	return nil
 }
+
+func (s PostgresStore) GetOrders(ctx context.Context, login string) (string, error) {
+	var json string
+	row := s.db.QueryRowContext(ctx, "SELECT json_agg(row_to_json(row)) AS JSON FROM (SELECT \"number\", status, accrual, to_char(uploaded, 'YYYY-MM-DD\"T\"HH24:MI:SS.US\"Z\"') AS uploaded_at FROM \"order\" WHERE \"user\"=$1) row", login)
+	err := row.Scan(&json)
+	if err != nil {
+		s.logger.Error("can't get orders:", err)
+		return "", sql.ErrNoRows
+	}
+	return json, nil
+}

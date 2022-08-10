@@ -2,6 +2,7 @@ package rest
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -64,6 +65,7 @@ func (s *ChiServer) routes() http.Handler {
 		r.Post("/login", s.login)
 		r.With(s.ValidateSession).Group(func(r chi.Router) {
 			r.Post("/orders", s.uploadOrder)
+			r.Get("/orders", s.getdOrders)
 		})
 	})
 	return r
@@ -169,6 +171,7 @@ func (s *ChiServer) uploadOrder(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	if !accepted {
+		s.logger.Info("order already accepted:", num)
 		w.WriteHeader(http.StatusConflict)
 		return
 	}
@@ -179,6 +182,7 @@ func (s *ChiServer) uploadOrder(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	if !accepted {
+		s.logger.Info("order already accepted:", num)
 		w.WriteHeader(http.StatusOK)
 		return
 	}
@@ -189,4 +193,38 @@ func (s *ChiServer) uploadOrder(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	w.WriteHeader(http.StatusAccepted)
+}
+
+func (s *ChiServer) getdOrders(w http.ResponseWriter, req *http.Request) {
+	v := req.Context().Value(ContextKey("LOGIN"))
+	if v == nil {
+		s.logger.Error("can't get context data")
+		http.Error(w, "can't get context data", http.StatusInternalServerError)
+		return
+	}
+	l, ok := v.(string)
+	if !ok {
+		s.logger.Error("can't get context data")
+		http.Error(w, "can't get context data", http.StatusInternalServerError)
+		return
+	}
+	orders, err := s.store.GetOrders(req.Context(), l)
+	if err == sql.ErrNoRows {
+		w.Header().Set("content-type", "application/json")
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+	if err != nil {
+		s.logger.Error("orders selecting failed:", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("content-type", "application/json")
+	_, err = w.Write([]byte(orders))
+	if err != nil {
+		s.logger.Error("data sending failed:", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
 }

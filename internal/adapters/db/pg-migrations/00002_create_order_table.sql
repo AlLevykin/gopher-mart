@@ -1,10 +1,11 @@
 -- +goose Up
 CREATE TYPE orderType AS ENUM ('NEW', 'PROCESSING', 'INVALID', 'PROCESSED');
 CREATE TABLE "order" (
-                    "number" varchar(12) PRIMARY KEY,
+                    "number" varchar(20) PRIMARY KEY,
                     "user" varchar(20),
                     status orderType,
-                    uploaded date
+                    accrual numeric DEFAULT 0,
+                    uploaded timestamp DEFAULT NOW()
 );
 CREATE UNIQUE INDEX order_user_number
     ON "order" ("user", "number");
