@@ -65,7 +65,8 @@ func (s *ChiServer) routes() http.Handler {
 		r.Post("/login", s.login)
 		r.With(s.ValidateSession).Group(func(r chi.Router) {
 			r.Post("/orders", s.uploadOrder)
-			r.Get("/orders", s.getdOrders)
+			r.Get("/orders", s.getOrders)
+			r.Get("/balance", s.getBalance)
 		})
 	})
 	return r
@@ -195,7 +196,7 @@ func (s *ChiServer) uploadOrder(w http.ResponseWriter, req *http.Request) {
 	w.WriteHeader(http.StatusAccepted)
 }
 
-func (s *ChiServer) getdOrders(w http.ResponseWriter, req *http.Request) {
+func (s *ChiServer) getOrders(w http.ResponseWriter, req *http.Request) {
 	v := req.Context().Value(ContextKey("LOGIN"))
 	if v == nil {
 		s.logger.Error("can't get context data")
@@ -221,6 +222,40 @@ func (s *ChiServer) getdOrders(w http.ResponseWriter, req *http.Request) {
 	}
 	w.Header().Set("content-type", "application/json")
 	_, err = w.Write([]byte(orders))
+	if err != nil {
+		s.logger.Error("data sending failed:", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+}
+
+func (s *ChiServer) getBalance(w http.ResponseWriter, req *http.Request) {
+	v := req.Context().Value(ContextKey("LOGIN"))
+	if v == nil {
+		s.logger.Error("can't get context data")
+		http.Error(w, "can't get context data", http.StatusInternalServerError)
+		return
+	}
+	l, ok := v.(string)
+	if !ok {
+		s.logger.Error("can't get context data")
+		http.Error(w, "can't get context data", http.StatusInternalServerError)
+		return
+	}
+	balance, err := s.store.GetBalance(req.Context(), l)
+	if err == sql.ErrNoRows {
+		w.Header().Set("content-type", "application/json")
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+	if err != nil {
+		s.logger.Error("orders selecting failed:", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("content-type", "application/json")
+	_, err = w.Write([]byte(balance))
 	if err != nil {
 		s.logger.Error("data sending failed:", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
