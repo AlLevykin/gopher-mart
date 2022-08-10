@@ -11,4 +11,5 @@ type Store interface {
 	IsOrderAccepted(ctx context.Context, order string) (bool, error)
 	IsOrderAcceptedByUser(ctx context.Context, order string, login string) (bool, error)
 	SaveOrder(ctx context.Context, order string, login string) error
+	GetOrders(ctx context.Context, login string) (string, error)
 }
