@@ -153,3 +153,16 @@ func (s PostgresStore) GetBalance(ctx context.Context, login string) (string, er
 	}
 	return json, nil
 }
+
+func (s PostgresStore) SaveWithdraw(ctx context.Context, w *models.Withdraw) error {
+	s.logger.Info("save withdraw:", w.Order, " ", w.Sum)
+
+	_, err := s.db.ExecContext(ctx,
+		"INSERT INTO \"withdraw\"(\"order\", \"sum\") VALUES($1,$2)",
+		w.Order, w.Sum)
+	if err != nil {
+		s.logger.Error("can't save withdraw:", err)
+		return err
+	}
+	return nil
+}

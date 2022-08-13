@@ -67,6 +67,7 @@ func (s *ChiServer) routes() http.Handler {
 			r.Post("/orders", s.uploadOrder)
 			r.Get("/orders", s.getOrders)
 			r.Get("/balance", s.getBalance)
+			r.Post("/balance/withdraw", s.sendWithdraw)
 		})
 	})
 	return r
@@ -258,6 +259,71 @@ func (s *ChiServer) getBalance(w http.ResponseWriter, req *http.Request) {
 	_, err = w.Write([]byte(balance))
 	if err != nil {
 		s.logger.Error("data sending failed:", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+}
+
+func (s *ChiServer) sendWithdraw(w http.ResponseWriter, req *http.Request) {
+	v := req.Context().Value(ContextKey("LOGIN"))
+	if v == nil {
+		s.logger.Error("can't get context data")
+		http.Error(w, "can't get context data", http.StatusInternalServerError)
+		return
+	}
+	l, ok := v.(string)
+	if !ok {
+		s.logger.Error("can't get context data")
+		http.Error(w, "can't get context data", http.StatusInternalServerError)
+		return
+	}
+	b, err := ReadBody(req)
+	if err != nil {
+		s.logger.Error("no request body for withdrawing:", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	wd, err := repo.UnmarshalWithdraw(b)
+	if err != nil {
+		s.logger.Error("bad request for withdrawing:", err)
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	accepted, err := s.store.IsOrderAccepted(req.Context(), wd.Order)
+	if err != nil {
+		s.logger.Error("can't check order acceptation:", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if !accepted {
+		s.logger.Info("order already accepted:", wd.Order)
+		w.WriteHeader(http.StatusUnprocessableEntity)
+		return
+	}
+	json, err := s.store.GetBalance(req.Context(), l)
+	if err == sql.ErrNoRows {
+		w.WriteHeader(http.StatusPaymentRequired)
+		return
+	}
+	if err != nil {
+		s.logger.Error("balance calculation failed:", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	balance, err := repo.UnmarshalBalance(json)
+	if err != nil {
+		s.logger.Error("balance calculation failed:", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if (balance.Current - balance.Withdrawn - wd.Sum) < 0 {
+		w.WriteHeader(http.StatusPaymentRequired)
+		return
+	}
+	err = s.store.SaveWithdraw(req.Context(), wd)
+	if err != nil {
+		s.logger.Error("orders selecting failed:", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
