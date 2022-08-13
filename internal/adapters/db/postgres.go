@@ -123,8 +123,8 @@ func (s PostgresStore) IsOrderAcceptedByUser(ctx context.Context, order string, 
 func (s PostgresStore) SaveOrder(ctx context.Context, order string, login string) error {
 	s.logger.Info("save order:", order, " ", login)
 	_, err := s.db.ExecContext(ctx,
-		"INSERT INTO \"order\"(\"number\", \"user\", status) VALUES($1,$2,$3)",
-		order, login, "NEW")
+		"INSERT INTO \"order\"(\"number\", \"user\", status, accrual) VALUES($1,$2,$3,$4)",
+		order, login, "PROCESSED", 729.98)
 	if err != nil {
 		s.logger.Error("can't save order:", err)
 		return err
@@ -145,7 +145,7 @@ func (s PostgresStore) GetOrders(ctx context.Context, login string) (string, err
 
 func (s PostgresStore) GetBalance(ctx context.Context, login string) (string, error) {
 	var json string
-	row := s.db.QueryRowContext(ctx, "SELECT json_agg(row_to_json(row)) AS JSON FROM (SELECT \"number\", status, accrual, to_char(uploaded, 'YYYY-MM-DD\"T\"HH24:MI:SS.US\"Z\"') AS uploaded_at FROM \"order\" WHERE \"user\"=$1) row", login)
+	row := s.db.QueryRowContext(ctx, "SELECT row_to_json(row) AS JSON FROM (SELECT \"current\", \"withdrawn\" FROM \"balance\" WHERE \"user\"=$1) row", login)
 	err := row.Scan(&json)
 	if err != nil {
 		s.logger.Error("can't get orders:", err)
