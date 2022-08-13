@@ -68,6 +68,7 @@ func (s *ChiServer) routes() http.Handler {
 			r.Get("/orders", s.getOrders)
 			r.Get("/balance", s.getBalance)
 			r.Post("/balance/withdraw", s.sendWithdraw)
+			r.Get("/balance/withdrawals", s.getWithdrawals)
 		})
 	})
 	return r
@@ -324,6 +325,40 @@ func (s *ChiServer) sendWithdraw(w http.ResponseWriter, req *http.Request) {
 	err = s.store.SaveWithdraw(req.Context(), wd)
 	if err != nil {
 		s.logger.Error("orders selecting failed:", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+}
+
+func (s *ChiServer) getWithdrawals(w http.ResponseWriter, req *http.Request) {
+	v := req.Context().Value(ContextKey("LOGIN"))
+	if v == nil {
+		s.logger.Error("can't get context data")
+		http.Error(w, "can't get context data", http.StatusInternalServerError)
+		return
+	}
+	l, ok := v.(string)
+	if !ok {
+		s.logger.Error("can't get context data")
+		http.Error(w, "can't get context data", http.StatusInternalServerError)
+		return
+	}
+	withdrawals, err := s.store.GetWithdrawals(req.Context(), l)
+	if err == sql.ErrNoRows {
+		w.Header().Set("content-type", "application/json")
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+	if err != nil {
+		s.logger.Error("withdrawals selecting failed:", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("content-type", "application/json")
+	_, err = w.Write([]byte(withdrawals))
+	if err != nil {
+		s.logger.Error("data sending failed:", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
