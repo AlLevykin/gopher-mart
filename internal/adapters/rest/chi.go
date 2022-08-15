@@ -18,12 +18,13 @@ type ContextKey string
 
 type ChiServer struct {
 	store    ports.Store
+	accrual  ports.AccrualDispatcher
 	http     *http.Server
 	listener net.Listener
 	logger   ports.Logger
 }
 
-func NewChiServer(address string, store ports.Store, logger ports.Logger) (*ChiServer, error) {
+func NewChiServer(address string, store ports.Store, accrual ports.AccrualDispatcher, logger ports.Logger) (*ChiServer, error) {
 	var (
 		server ChiServer
 		err    error
@@ -31,6 +32,7 @@ func NewChiServer(address string, store ports.Store, logger ports.Logger) (*ChiS
 
 	server.logger = logger
 	server.store = store
+	server.accrual = accrual
 
 	server.listener, err = net.Listen("tcp", address)
 	if err != nil {
@@ -55,6 +57,10 @@ func (s *ChiServer) Stop(ctx context.Context) error {
 	err := s.http.Shutdown(ctx)
 	s.logger.Info("http server stopped")
 	return err
+}
+
+func (s *ChiServer) startOrderProcessing(order string) {
+	s.accrual.Dispatch(order)
 }
 
 func (s *ChiServer) routes() http.Handler {
@@ -167,26 +173,27 @@ func (s *ChiServer) uploadOrder(w http.ResponseWriter, req *http.Request) {
 		http.Error(w, "order number not valid", http.StatusUnprocessableEntity)
 		return
 	}
-	accepted, err := s.store.IsOrderAccepted(req.Context(), num)
-	if err != nil {
-		s.logger.Error("can't check order acceptation:", err)
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	if !accepted {
-		s.logger.Info("order already accepted:", num)
-		w.WriteHeader(http.StatusConflict)
-		return
-	}
-	accepted, err = s.store.IsOrderAcceptedByUser(req.Context(), num, l)
+	accepted, err := s.store.IsOrderAcceptedByUser(req.Context(), num, l)
 	if err != nil {
 		s.logger.Error("can't check order acceptation by user:", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	if !accepted {
-		s.logger.Info("order already accepted:", num)
+	if accepted {
+		s.logger.Info("order already accepted by user:", num, ", ", l)
+		s.startOrderProcessing(num)
 		w.WriteHeader(http.StatusOK)
+		return
+	}
+	accepted, err = s.store.IsOrderAccepted(req.Context(), num)
+	if err != nil {
+		s.logger.Error("can't check order acceptation:", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if accepted {
+		s.logger.Info("order already accepted:", num)
+		w.WriteHeader(http.StatusConflict)
 		return
 	}
 	err = s.store.SaveOrder(req.Context(), num, l)
@@ -195,6 +202,7 @@ func (s *ChiServer) uploadOrder(w http.ResponseWriter, req *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+	s.startOrderProcessing(num)
 	w.WriteHeader(http.StatusAccepted)
 }
 
@@ -291,6 +299,11 @@ func (s *ChiServer) sendWithdraw(w http.ResponseWriter, req *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
+	if !luhn.Valid(wd.Order) {
+		s.logger.Error("order number not valid")
+		http.Error(w, "order number not valid", http.StatusUnprocessableEntity)
+		return
+	}
 	accepted, err := s.store.IsOrderAccepted(req.Context(), wd.Order)
 	if err != nil {
 		s.logger.Error("can't check order acceptation:", err)
@@ -298,9 +311,12 @@ func (s *ChiServer) sendWithdraw(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	if !accepted {
-		s.logger.Info("order already accepted:", wd.Order)
-		w.WriteHeader(http.StatusUnprocessableEntity)
-		return
+		err = s.store.SaveOrder(req.Context(), wd.Order, l)
+		if err != nil {
+			s.logger.Error("order uploading failed:", err)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
 	}
 	json, err := s.store.GetBalance(req.Context(), l)
 	if err == sql.ErrNoRows {
@@ -318,7 +334,8 @@ func (s *ChiServer) sendWithdraw(w http.ResponseWriter, req *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	if (balance.Current - balance.Withdrawn - wd.Sum) < 0 {
+	if (balance.Current - wd.Sum) < 0 {
+		s.logger.Info("insufficient funds:", l)
 		w.WriteHeader(http.StatusPaymentRequired)
 		return
 	}

@@ -5,6 +5,7 @@ import (
 	"flag"
 	"github.com/spf13/viper"
 	"golang.org/x/sync/errgroup"
+	"gophermart/internal/adapters/accrualdispatcher"
 	"gophermart/internal/adapters/db"
 	"gophermart/internal/adapters/logging"
 	"gophermart/internal/adapters/rest"
@@ -18,7 +19,8 @@ const (
 )
 
 var (
-	server ports.RESTServer
+	server  ports.RESTServer
+	accrual *accrualdispatcher.GopherAccrualDispatcher
 )
 
 func Start(ctx context.Context) {
@@ -33,8 +35,12 @@ func Start(ctx context.Context) {
 		logger.Fatal("store creation filed", err)
 	}
 
+	accrualconn := viper.GetString(AccrualSystemAddress)
+	accrual = accrualdispatcher.NewGopherAccrualDispatcher(accrualconn, store, logger)
+	accrual.Start()
+
 	address := viper.GetString(RunAddress)
-	server, err = rest.NewChiServer(address, store, logger)
+	server, err = rest.NewChiServer(address, store, accrual, logger)
 	if err != nil {
 		logger.Fatal("rest server creation filed", err)
 	}
@@ -57,6 +63,7 @@ func Stop() {
 	if err != nil {
 		logger.Fatalf("app stop failed: %v", err)
 	}
+	accrual.Stop()
 	logger.Info("app stopped")
 }
 

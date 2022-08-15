@@ -15,4 +15,5 @@ type Store interface {
 	GetBalance(ctx context.Context, login string) (string, error)
 	SaveWithdraw(ctx context.Context, w *models.Withdraw) error
 	GetWithdrawals(ctx context.Context, login string) (string, error)
+	UpdateOrder(ctx context.Context, o *models.Order) error
 }
