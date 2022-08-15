@@ -28,8 +28,8 @@ func NewGopherAccrualDispatcher(address string, store ports.Store, logger ports.
 
 func (d GopherAccrualDispatcher) Start() {
 	go func() {
-		for order := range d.chReq {
-			go func() {
+		for num := range d.chReq {
+			go func(order string) {
 				resp, err := http.Get(d.address + "/api/orders/" + order)
 				if err != nil {
 					d.logger.Error("accrual service error:", err)
@@ -52,7 +52,7 @@ func (d GopherAccrualDispatcher) Start() {
 					return
 				}
 				d.store.UpdateOrder(context.Background(), o)
-			}()
+			}(num)
 		}
 	}()
 }
