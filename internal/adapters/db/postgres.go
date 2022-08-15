@@ -94,7 +94,7 @@ func (s PostgresStore) IsOrderAccepted(ctx context.Context, order string) (bool,
 	if err != nil {
 		return false, err
 	}
-	if rows != 0 {
+	if rows == 0 {
 		return false, nil
 	}
 	return true, nil
@@ -114,7 +114,7 @@ func (s PostgresStore) IsOrderAcceptedByUser(ctx context.Context, order string, 
 	if err != nil {
 		return false, err
 	}
-	if rows != 0 {
+	if rows == 0 {
 		return false, nil
 	}
 	return true, nil
@@ -180,5 +180,12 @@ func (s PostgresStore) GetWithdrawals(ctx context.Context, login string) (string
 
 func (s PostgresStore) UpdateOrder(ctx context.Context, o *models.Order) error {
 	s.logger.Info("order updated:", o.Number)
+	_, err := s.db.ExecContext(ctx,
+		"UPDATE \"order\" SET status = $1, accrual = $2 WHERE \"number\" = $3",
+		o.Status, o.Accrual, o.Number)
+	if err != nil {
+		s.logger.Error("can't save order:", err)
+		return err
+	}
 	return nil
 }

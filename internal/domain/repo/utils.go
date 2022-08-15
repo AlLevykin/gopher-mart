@@ -31,3 +31,12 @@ func UnmarshalBalance(s string) (*models.Balance, error) {
 	}
 	return &res, nil
 }
+
+func UnmarshalOrder(s string) (*models.Order, error) {
+	res := models.Order{}
+	err := json.Unmarshal([]byte(s), &res)
+	if err != nil {
+		return nil, err
+	}
+	return &res, nil
+}

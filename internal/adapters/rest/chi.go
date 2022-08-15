@@ -179,8 +179,8 @@ func (s *ChiServer) uploadOrder(w http.ResponseWriter, req *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	if !accepted {
-		s.logger.Info("order already accepted:", num)
+	if accepted {
+		s.logger.Info("order already accepted by user:", num, ", ", l)
 		s.startOrderProcessing(num)
 		w.WriteHeader(http.StatusOK)
 		return
@@ -191,7 +191,7 @@ func (s *ChiServer) uploadOrder(w http.ResponseWriter, req *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	if !accepted {
+	if accepted {
 		s.logger.Info("order already accepted:", num)
 		w.WriteHeader(http.StatusConflict)
 		return
@@ -299,6 +299,11 @@ func (s *ChiServer) sendWithdraw(w http.ResponseWriter, req *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
+	if !luhn.Valid(wd.Order) {
+		s.logger.Error("order number not valid")
+		http.Error(w, "order number not valid", http.StatusUnprocessableEntity)
+		return
+	}
 	accepted, err := s.store.IsOrderAccepted(req.Context(), wd.Order)
 	if err != nil {
 		s.logger.Error("can't check order acceptation:", err)
@@ -306,9 +311,12 @@ func (s *ChiServer) sendWithdraw(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	if !accepted {
-		s.logger.Info("order already accepted:", wd.Order)
-		w.WriteHeader(http.StatusUnprocessableEntity)
-		return
+		err = s.store.SaveOrder(req.Context(), wd.Order, l)
+		if err != nil {
+			s.logger.Error("order uploading failed:", err)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
 	}
 	json, err := s.store.GetBalance(req.Context(), l)
 	if err == sql.ErrNoRows {
@@ -326,7 +334,8 @@ func (s *ChiServer) sendWithdraw(w http.ResponseWriter, req *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	if (balance.Current - balance.Withdrawn - wd.Sum) < 0 {
+	if (balance.Current - wd.Sum) < 0 {
+		s.logger.Info("insufficient funds:", l)
 		w.WriteHeader(http.StatusPaymentRequired)
 		return
 	}
