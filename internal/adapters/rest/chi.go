@@ -75,6 +75,7 @@ func (s *ChiServer) routes() http.Handler {
 			r.Get("/balance", s.getBalance)
 			r.Post("/balance/withdraw", s.sendWithdraw)
 			r.Get("/balance/withdrawals", s.getWithdrawals)
+			r.Get("/withdrawals", s.getWithdrawals)
 		})
 	})
 	return r
