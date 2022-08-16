@@ -169,7 +169,7 @@ func (s PostgresStore) SaveWithdraw(ctx context.Context, w *models.Withdraw) err
 
 func (s PostgresStore) GetWithdrawals(ctx context.Context, login string) (string, error) {
 	var json string
-	row := s.db.QueryRowContext(ctx, "SELECT row_to_json(row) AS JSON FROM (SELECT \"order\", \"sum\", \"processed_at\" FROM \"withdrawals\" WHERE \"user\"=$1) row", login)
+	row := s.db.QueryRowContext(ctx, "SELECT json_agg(row_to_json(row)) AS JSON FROM (SELECT \"order\", \"sum\", \"processed_at\" FROM \"withdrawals\" WHERE \"user\"=$1) row", login)
 	err := row.Scan(&json)
 	if err != nil {
 		s.logger.Error("can't get withdrawals:", err)
