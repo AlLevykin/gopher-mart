@@ -13,7 +13,7 @@ import (
 )
 
 const (
-	DatabaseURL          = "DATABASE_URL"
+	DatabaseURL          = "DATABASE_URI"
 	RunAddress           = "RUN_ADDRESS"
 	AccrualSystemAddress = "ACCRUAL_SYSTEM_ADDRESS"
 )
