@@ -7,7 +7,7 @@ import (
 
 var logger *logrus.Logger
 
-func init() {
+func InitLogger() {
 	logger = logrus.New()
 	logger.SetOutput(os.Stdout)
 	logger.SetFormatter(&logrus.TextFormatter{
