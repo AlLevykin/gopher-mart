@@ -6,8 +6,7 @@ import (
 )
 
 func InitLogger() *logrus.Logger {
-	var logger *logrus.Logger
-	logger = logrus.New()
+	logger := logrus.New()
 	logger.SetOutput(os.Stdout)
 	logger.SetFormatter(&logrus.TextFormatter{
 		ForceColors:     true,
