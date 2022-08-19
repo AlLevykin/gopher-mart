@@ -47,6 +47,7 @@ func NewChiServer(address string, store ports.Store, accrual ports.AccrualDispat
 }
 
 func (s *ChiServer) Start() error {
+	s.accrual.Start()
 	if err := s.http.Serve(s.listener); !errors.Is(err, http.ErrServerClosed) {
 		return err
 	}
@@ -56,6 +57,7 @@ func (s *ChiServer) Start() error {
 func (s *ChiServer) Stop(ctx context.Context) error {
 	err := s.http.Shutdown(ctx)
 	s.logger.Info("http server stopped")
+	s.accrual.Stop()
 	return err
 }
 

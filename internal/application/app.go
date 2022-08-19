@@ -19,8 +19,7 @@ const (
 )
 
 var (
-	server  ports.RESTServer
-	accrual *accrualdispatcher.GopherAccrualDispatcher
+	server ports.RESTServer
 )
 
 func Start(ctx context.Context) {
@@ -36,8 +35,7 @@ func Start(ctx context.Context) {
 	}
 
 	accrualconn := viper.GetString(AccrualSystemAddress)
-	accrual = accrualdispatcher.NewGopherAccrualDispatcher(accrualconn, store, logger)
-	accrual.Start()
+	accrual := accrualdispatcher.NewGopherAccrualDispatcher(accrualconn, store, logger)
 
 	address := viper.GetString(RunAddress)
 	server, err = rest.NewChiServer(address, store, accrual, logger)
@@ -62,7 +60,6 @@ func Stop() {
 	if err != nil {
 		panic("app stop failed: " + err.Error())
 	}
-	accrual.Stop()
 }
 
 func readEnv(logger ports.Logger) {
