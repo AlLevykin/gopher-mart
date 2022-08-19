@@ -59,6 +59,7 @@ func (d GopherAccrualDispatcher) Start() {
 
 func (d GopherAccrualDispatcher) Stop() {
 	close(d.chReq)
+	d.logger.Info("accrual dispatcher stopped")
 }
 
 func (d GopherAccrualDispatcher) Dispatch(order string) {

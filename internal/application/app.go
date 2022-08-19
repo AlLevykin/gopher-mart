@@ -18,16 +18,19 @@ const (
 	AccrualSystemAddress = "ACCRUAL_SYSTEM_ADDRESS"
 )
 
-var (
-	server  ports.RESTServer
-	accrual *accrualdispatcher.GopherAccrualDispatcher
-)
+type GophermartApplication struct {
+	server ports.RESTServer
+}
 
-func Start(ctx context.Context) {
+func NewGophermartApplication() *GophermartApplication {
+	return &GophermartApplication{}
+}
 
-	readEnv()
+func (app *GophermartApplication) Start(ctx context.Context) {
 
-	logger := logging.GetLogger()
+	logger := logging.InitLogger()
+
+	readEnv(logger)
 
 	pgconn := viper.GetString(DatabaseURL)
 	store, err := db.NewPostgresStore(ctx, pgconn, logger)
@@ -36,18 +39,17 @@ func Start(ctx context.Context) {
 	}
 
 	accrualconn := viper.GetString(AccrualSystemAddress)
-	accrual = accrualdispatcher.NewGopherAccrualDispatcher(accrualconn, store, logger)
-	accrual.Start()
+	accrual := accrualdispatcher.NewGopherAccrualDispatcher(accrualconn, store, logger)
 
 	address := viper.GetString(RunAddress)
-	server, err = rest.NewChiServer(address, store, accrual, logger)
+	app.server, err = rest.NewChiServer(address, store, accrual, logger)
 	if err != nil {
 		logger.Fatal("rest server creation filed", err)
 	}
 
 	var g errgroup.Group
 	g.Go(func() error {
-		return server.Start()
+		return app.server.Start()
 	})
 
 	logger.Info("app started")
@@ -57,24 +59,20 @@ func Start(ctx context.Context) {
 	}
 }
 
-func Stop() {
-	logger := logging.GetLogger()
-	err := server.Stop(context.Background())
+func (app *GophermartApplication) Stop() {
+	err := app.server.Stop(context.Background())
 	if err != nil {
-		logger.Fatalf("app stop failed: %v", err)
+		panic("app stop failed: " + err.Error())
 	}
-	accrual.Stop()
-	logger.Info("app stopped")
 }
 
-func readEnv() {
+func readEnv(logger ports.Logger) {
 	var (
 		err        error
 		addr       string
 		dbURL      string
 		accrualSys string
 	)
-	logger := logging.GetLogger()
 
 	flag.StringVar(&addr, "a", "127.0.0.1:8080", "")
 	flag.StringVar(&dbURL, "d", "postgres://postgres:qwerty@localhost:5432/gophermart?sslmode=disable", "")
@@ -82,19 +80,19 @@ func readEnv() {
 
 	err = viper.BindEnv(DatabaseURL)
 	if err != nil {
-		logger.Fatalf("database url env: %v", err)
+		logger.Fatal("database url env: %v", err)
 	}
 	viper.SetDefault(DatabaseURL, dbURL)
 
 	err = viper.BindEnv(RunAddress)
 	if err != nil {
-		logger.Fatalf("run address env: %v", err)
+		logger.Fatal("run address env: %v", err)
 	}
 	viper.SetDefault(RunAddress, addr)
 
 	err = viper.BindEnv(AccrualSystemAddress)
 	if err != nil {
-		logger.Fatalf("accrual system address env: %v", err)
+		logger.Fatal("accrual system address env: %v", err)
 	}
 	viper.SetDefault(AccrualSystemAddress, accrualSys)
 }

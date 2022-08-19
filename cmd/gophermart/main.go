@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"gophermart/internal/adapters/logging"
 	"gophermart/internal/application"
 	"os"
 	"os/signal"
@@ -12,8 +11,8 @@ import (
 func main() {
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGTERM, os.Interrupt)
 	defer cancel()
-	logging.InitLogger()
-	go application.Start(ctx)
+	app := application.NewGophermartApplication()
+	go app.Start(ctx)
 	<-ctx.Done()
-	application.Stop()
+	app.Stop()
 }
