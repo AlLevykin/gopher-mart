@@ -5,9 +5,8 @@ import (
 	"os"
 )
 
-var logger *logrus.Logger
-
-func InitLogger() {
+func InitLogger() *logrus.Logger {
+	var logger *logrus.Logger
 	logger = logrus.New()
 	logger.SetOutput(os.Stdout)
 	logger.SetFormatter(&logrus.TextFormatter{
@@ -21,8 +20,5 @@ func InitLogger() {
 			logrus.FieldKeyMsg:   "message",
 		},
 	})
-}
-
-func GetLogger() *logrus.Logger {
 	return logger
 }
