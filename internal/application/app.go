@@ -18,11 +18,15 @@ const (
 	AccrualSystemAddress = "ACCRUAL_SYSTEM_ADDRESS"
 )
 
-var (
+type GophermartApplication struct {
 	server ports.RESTServer
-)
+}
 
-func Start(ctx context.Context) {
+func NewGophermartApplication() *GophermartApplication {
+	return &GophermartApplication{}
+}
+
+func (app *GophermartApplication) Start(ctx context.Context) {
 
 	logger := logging.InitLogger()
 
@@ -38,14 +42,14 @@ func Start(ctx context.Context) {
 	accrual := accrualdispatcher.NewGopherAccrualDispatcher(accrualconn, store, logger)
 
 	address := viper.GetString(RunAddress)
-	server, err = rest.NewChiServer(address, store, accrual, logger)
+	app.server, err = rest.NewChiServer(address, store, accrual, logger)
 	if err != nil {
 		logger.Fatal("rest server creation filed", err)
 	}
 
 	var g errgroup.Group
 	g.Go(func() error {
-		return server.Start()
+		return app.server.Start()
 	})
 
 	logger.Info("app started")
@@ -55,8 +59,8 @@ func Start(ctx context.Context) {
 	}
 }
 
-func Stop() {
-	err := server.Stop(context.Background())
+func (app *GophermartApplication) Stop() {
+	err := app.server.Stop(context.Background())
 	if err != nil {
 		panic("app stop failed: " + err.Error())
 	}
